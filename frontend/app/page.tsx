@@ -34,7 +34,7 @@ interface AgentState {
 interface CompletePayload {
   total_vectors: number
   familles_nist: unknown
-  resume_nist: unknown
+  resume_nist: string
   warnings: string[]
   csv_rows: Array<Record<string, string>>
   nist_mapping: Record<string, unknown>
