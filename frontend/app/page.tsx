@@ -250,7 +250,7 @@ export default function Page() {
                           <span key={k} className="text-[10px] bg-[#1a1a24] border border-[#1e2030] px-1.5 py-0.5 rounded">
                             <span className="text-[#4a5568]">{k}: </span>
                             <span className="text-[#00ff9d]">
-                              {Array.isArray(v) ? v.join(", ") || "—" : String(v)}
+                            {Array.isArray(v) ? v.join(", ") || "—" : typeof v === "object" && v !== null ? Object.keys(v).join(", ") : String(v ?? "—")}  
                             </span>
                           </span>
                         ))}
@@ -296,8 +296,7 @@ export default function Page() {
             <div className="grid grid-cols-3 gap-3">
               {[
                 { label: "Vecteurs identifiés", value: result.total_vectors },
-                { label: "Familles NIST", value: result.familles_nist?.join(", ") || "—" },
-                { label: "Avertissements", value: result.warnings?.length ?? 0 },
+             { label: "Familles NIST", value: Array.isArray(result.familles_nist) ? result.familles_nist.join(", ") : typeof result.familles_nist === "object" && result.familles_nist !== null ? Object.keys(result.familles_nist).join(", ") : String(result.familles_nist || "—") },    { label: "Avertissements", value: result.warnings?.length ?? 0 },
               ].map(({ label, value }) => (
                 <div key={label} className="border border-[#1e2030] bg-[#111115] rounded p-3">
                   <div className="text-[10px] text-[#4a5568] uppercase tracking-wider mb-1">{label}</div>
