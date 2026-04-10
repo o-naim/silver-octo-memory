@@ -2,6 +2,9 @@
 Swarm Exfiltration API — FastAPI backend
 Runs the LangGraph swarm and streams agent progress via SSE.
 """
+from dotenv import load_dotenv
+load_dotenv()
+
 
 import os
 import json
