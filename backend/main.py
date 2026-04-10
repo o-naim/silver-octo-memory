@@ -35,11 +35,12 @@ PINECONE_INDEX   = os.getenv("PINECONE_INDEX", "threat-vectors")
 HF_MODEL         = "BAAI/bge-large-en-v1.5"
 HF_API_URL       = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL}/pipeline/feature-extraction"
 
-# ── Model fallback chain (all active as of April 2026) ───────────────────────
+# ── Model fallback chain 
 MODEL_CHAIN = [
-    "llama-3.3-70b-versatile",   # primary — best quality
-    "qwen-qwq-32b",              # fallback 1 — strong reasoning, separate quota
-    "llama-3.1-8b-instant",      # fallback 2 — fast, very high limits
+    "llama-3.3-70b-versatile",                    # primary — 12K TPM, 100K TPD
+    "meta-llama/llama-4-scout-17b-16e-instruct",  # fallback 1 — 30K TPM, 500K TPD (best limits)
+    "moonshotai/kimi-k2-instruct-0905",            # fallback 2 — 10K TPM, 300K TPD
+    "openai/gpt-oss-20b",                          # fallback 3 — 8K TPM, 200K TPD
 ]
 
 def make_llm_json(model: str):
@@ -98,9 +99,17 @@ def invoke_with_retry(messages, max_retries=8, default_wait=15):
 
         except BadRequestError as e:
             err_str = str(e)
-            # Decommissioned model — switch immediately
             if "decommissioned" in err_str or "model_decommissioned" in err_str:
                 print(f"[Decommissioned] {MODEL_CHAIN[_model_index]} — switching model...")
+                _next_model()
+                continue
+            raise
+
+        except Exception as e:
+            err_str = str(e)
+            # 413 request too large — switch to next model
+            if "413" in err_str or "Request too large" in err_str:
+                print(f"[413 Too large] {MODEL_CHAIN[_model_index]} — switching model...")
                 _next_model()
                 continue
             raise  # other 400 errors — re-raise
@@ -131,9 +140,9 @@ def embed(query: str) -> list:
     vector = r.json()
     return vector[0] if isinstance(vector[0], list) else vector
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # AGENT PROMPTS
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 NORMALIZER_SYSTEM = """Tu es un agent de normalisation specialise en cybersecurite.
 On te donne un objet IT brut (ex: "laptop", "cle USB", "smartphone BYOD", "agent IA").
@@ -263,9 +272,9 @@ Produis un JSON avec exactement ces cles :
 
 UNIQUEMENT du JSON valide."""
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # AGENTS
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 def normalizer_agent(state: ExfilState) -> dict:
     r = invoke_with_retry([
@@ -372,9 +381,9 @@ def csv_builder_agent(state: ExfilState) -> dict:
             rows.append(row)
     return {"csv_rows": rows}
 
-# ══════════════════════════════════════════════════════════════════════════════
+
 # GRAPH
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 def build_swarm():
     b = StateGraph(ExfilState)
@@ -393,9 +402,8 @@ def build_swarm():
 
 swarm = build_swarm()
 
-# ══════════════════════════════════════════════════════════════════════════════
 # FASTAPI
-# ══════════════════════════════════════════════════════════════════════════════
+
 
 app = FastAPI(title="Swarm Exfiltration API")
 app.add_middleware(
